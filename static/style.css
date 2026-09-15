@@ -1,0 +1,167 @@
+:root {
+  --iv: #2563eb; --dv: #16a34a; --cv: #d97706; --ink: #1f2937;
+  --bg: #f3f5f9; --card: #ffffff; --line: #d9deea; --danger: #dc2626;
+  --warn: #b45309; --ok: #15803d;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC",
+    "Segoe UI", sans-serif;
+  background: var(--bg); color: var(--ink); font-size: 15px;
+}
+.hidden { display: none !important; }
+
+.topbar {
+  display: flex; justify-content: space-between; align-items: center;
+  background: #1e293b; color: #fff; padding: .6rem 1.2rem; position: sticky; top: 0; z-index: 20;
+}
+.brand { font-weight: 700; font-size: 1.15rem; }
+.top-controls { display: flex; gap: .6rem; align-items: center; }
+.top-controls select { padding: .35rem; border-radius: 6px; border: none; }
+
+main { max-width: 1080px; margin: 1rem auto 4rem; padding: 0 1rem; }
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  padding: 1rem 1.2rem; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(20,30,60,.06);
+}
+.card h2 { margin: .1rem 0 .8rem; font-size: 1.08rem; }
+.card h3 { font-size: .98rem; margin: .6rem 0 .4rem; }
+
+label { display: block; margin: .4rem 0; font-size: .92rem; color: #374151; }
+input[type=text], input[type=number], textarea, select {
+  width: 100%; padding: .42rem .55rem; border: 1px solid var(--line);
+  border-radius: 7px; font-size: .95rem; font-family: inherit; margin-top: .2rem;
+}
+textarea { resize: vertical; }
+.row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: end; }
+.row label { flex: 1 1 9rem; }
+.hint { color: #6b7280; font-size: .85rem; }
+
+.btn {
+  border: 1px solid #b8c0d2; background: #f8fafc; color: var(--ink);
+  padding: .45rem .9rem; border-radius: 8px; cursor: pointer; font-size: .92rem;
+}
+.btn:hover { background: #eef2f8; }
+.btn.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+.btn.primary:hover { background: #1d4ed8; }
+.btn.warn { background: #b91c1c; border-color: #b91c1c; color: #fff; }
+.btn.small { padding: .25rem .55rem; font-size: .85rem; margin-top: .35rem; }
+.save-state { font-size: .85rem; color: #cbd5e1; }
+
+/* 因素篮子 */
+.factor-toolbar { display: flex; gap: .6rem; margin-bottom: .7rem; }
+.factor-toolbar input { flex: 1; margin: 0; }
+.factor-toolbar .btn { white-space: nowrap; }
+.bins { display: grid; grid-template-columns: repeat(3, 1fr); gap: .8rem; }
+.bin, .unassigned {
+  border: 2px dashed var(--line); border-radius: 10px; padding: .5rem; min-height: 9rem;
+}
+.bin-iv { border-color: var(--iv); background: #eff5ff; }
+.bin-dv { border-color: var(--dv); background: #f0fdf4; }
+.bin-cv { border-color: var(--cv); background: #fffbeb; }
+.bin h3 { margin: .1rem .2rem .5rem; font-size: .95rem; }
+.bin h3 small { font-weight: 400; color: #6b7280; }
+.unassigned { margin-top: .8rem; min-height: 5rem; }
+.bin-body.drag-over { outline: 2px dashed #6366f1; outline-offset: 2px; border-radius: 8px; }
+
+.factor-card {
+  background: #fff; border: 1px solid var(--line); border-radius: 9px;
+  padding: .5rem .6rem; margin-bottom: .45rem; cursor: grab;
+}
+.factor-card:active { cursor: grabbing; }
+.factor-card .fc-head { display: flex; justify-content: space-between; align-items: center; }
+.factor-card .fc-name { font-weight: 600; }
+.factor-card .fc-del { border: none; background: none; color: #9ca3af; cursor: pointer; font-size: 1rem; }
+.factor-card .fc-del:hover { color: var(--danger); }
+.factor-card input { font-size: .85rem; padding: .25rem .4rem; margin-top: .25rem; }
+.fc-levels { font-size: .82rem; color: #4b5563; margin-top: .25rem; }
+.fc-tag { font-size: .72rem; padding: 0 .4rem; border-radius: 10px; color: #fff; }
+.tag-independent { background: var(--iv); } .tag-dependent { background: var(--dv); }
+.tag-controlled { background: var(--cv); } .tag-unassigned { background: #6b7280; }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
+.mini-table { width: 100%; border-collapse: collapse; }
+.mini-table th, .mini-table td { padding: .3rem .35rem; border-bottom: 1px solid #eef1f6; }
+.mini-table input { padding: .28rem .4rem; font-size: .88rem; }
+.mini-table .del-cell { width: 2rem; text-align: center; }
+.mini-table .del-cell button { border: none; background: none; color: #9ca3af; cursor: pointer; }
+
+/* 检查提示 */
+.issues { margin-bottom: .6rem; }
+.issue {
+  border-radius: 8px; padding: .45rem .7rem; margin: .35rem 0; font-size: .9rem;
+  display: flex; gap: .5rem; align-items: baseline; cursor: pointer;
+}
+.issue .icode { font-size: .72rem; opacity: .75; font-family: ui-monospace, monospace; }
+.issue.warn { background: #fef3c7; border-left: 4px solid var(--warn); }
+.issue.error { background: #fee2e2; border-left: 4px solid var(--danger); }
+.issue.ok { background: #dcfce7; border-left: 4px solid var(--ok); }
+.issue:hover { filter: brightness(.97); }
+.schedule-row { margin-top: .5rem; }
+
+/* 时间轴 */
+.timeline { display: flex; gap: .55rem; overflow-x: auto; padding: .6rem .2rem; }
+.round-chip {
+  flex: 0 0 12.5rem; border: 2px solid var(--line); border-radius: 10px;
+  padding: .55rem .65rem; background: #fff; position: relative;
+}
+.round-chip.locked { border-color: var(--ok); background: #f0fdf4; }
+.round-chip.flagged { border-color: var(--danger); box-shadow: 0 0 0 2px #fecaca; }
+.round-chip.active { outline: 3px solid #6366f1; }
+.round-chip .seq { font-weight: 700; }
+.round-chip .slot { font-size: .78rem; color: #6b7280; }
+.round-chip .combo { margin: .35rem 0; font-size: .85rem; }
+.chip-level { display: inline-block; background: #eef2ff; border-radius: 8px;
+  padding: 0 .45rem; margin: .1rem .2rem .1rem 0; font-size: .78rem; }
+.round-chip .rc-actions { display: flex; gap: .3rem; margin-top: .35rem; }
+.round-chip .rc-actions .btn { padding: .2rem .5rem; font-size: .8rem; }
+.lock-mark { position: absolute; top: .4rem; right: .5rem; }
+
+/* 测量录入 */
+.combo-chips { margin: .3rem 0 .6rem; }
+.entry-row {
+  border: 1px solid var(--line); border-radius: 10px; padding: .6rem .8rem; margin-bottom: .6rem;
+}
+.entry-row .er-title { font-weight: 600; }
+.entry-row .er-grid { display: grid; grid-template-columns: 1fr 6rem 1.4fr auto; gap: .5rem; align-items: end; }
+.entry-row input, .entry-row select { margin-top: 0; }
+.checkline { display: flex; gap: .4rem; align-items: center; font-size: .9rem; }
+.checkline input { width: auto; }
+
+/* 结果 */
+.result-panel { margin-bottom: .9rem; }
+.result-panel table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+.result-panel th, .result-panel td { border: 1px solid #e5e7eb; padding: .35rem .55rem; text-align: center; }
+.result-panel th { background: #f8fafc; }
+.flag-cell-missing { background: #fef3c7; }
+.flag-cell-unit { background: #fee2e2; }
+.flag-cell-excl { text-decoration: line-through; color: #9ca3af; }
+.chart-wrap { display: inline-block; margin: .4rem 1.4rem .4rem 0;
+  background: #fafbfe; border: 1px solid var(--line); border-radius: 10px; padding: .5rem; }
+
+/* 冻结/回放 */
+.snapshots { margin-top: .5rem; font-size: .88rem; }
+.snapshots .snap { background: #f1f5f9; border-radius: 8px; padding: .35rem .6rem;
+  margin: .25rem 0; display: flex; justify-content: space-between; gap: .6rem; }
+.replay { margin-top: .7rem; background: #f8fafc; border: 1px solid var(--line);
+  border-radius: 10px; padding: .7rem; font-size: .88rem; }
+.replay .rp-ok { color: var(--ok); font-weight: 700; }
+.replay .rp-bad { color: var(--danger); font-weight: 700; }
+.replay details { margin-top: .4rem; }
+.replay pre { background: #fff; border: 1px solid var(--line); border-radius: 8px;
+  padding: .5rem; overflow-x: auto; font-size: .78rem; }
+
+/* 打印实验单 */
+.print-only { display: none; }
+@media print {
+  body * { visibility: hidden; }
+  #printSheet, #printSheet * { visibility: visible; }
+  #printSheet {
+    display: block; position: absolute; inset: 0; padding: 1.2cm;
+    color: #000; background: #fff; font-size: 12pt;
+  }
+  #psTable { width: 100%; border-collapse: collapse; margin-top: .3rem; }
+  #psTable th, #psTable td { height: 2rem; }
+  .ps-note { margin-top: 1rem; font-size: 10pt; color: #333; }
+  @page { margin: 1.2cm; }
+}

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>变量控制排演板</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">🧪 变量控制排演板</div>
+  <div class="top-controls">
+    <select id="inquirySelect" title="选择探究"></select>
+    <button id="newInquiryBtn" class="btn">＋ 新探究</button>
+    <span id="saveState" class="save-state"></span>
+  </div>
+</header>
+
+<main id="app" class="hidden">
+
+  <!-- 1. 假设与总体设置 -->
+  <section class="card" id="hypothesisCard">
+    <h2>① 写下假设与总体条件</h2>
+    <label>探究名称
+      <input id="nameInput" type="text" placeholder="例如：光照对绿豆发芽的影响">
+    </label>
+    <label>我的假设（如果……那么……因为……）
+      <textarea id="hypothesisInput" rows="2"
+        placeholder="如果增加光照时间，那么绿豆发芽会更快，因为光照为发芽提供能量……"></textarea>
+    </label>
+    <div class="row">
+      <label>每个水平组合重复次数
+        <input id="repeatsInput" type="number" min="1" max="20" value="3" style="width:5rem">
+      </label>
+      <label>随机种子
+        <input id="seedInput" type="number" value="20260915" style="width:8rem">
+      </label>
+      <span class="hint">同一颗种子排出来的次序一模一样，方便复核。</span>
+    </div>
+  </section>
+
+  <!-- 2. 因素归类 -->
+  <section class="card">
+    <h2>② 把因素拖进三个篮子</h2>
+    <div class="factor-toolbar">
+      <input id="newFactorName" type="text" placeholder="新因素名，如：温度、水量、发芽数…">
+      <button id="addFactorBtn" class="btn">＋ 添加因素卡片</button>
+    </div>
+    <div class="bins">
+      <div class="bin bin-iv" data-kind="independent">
+        <h3>自变量 <small>我每次故意改变的</small></h3>
+        <div class="bin-body" data-drop="independent"></div>
+      </div>
+      <div class="bin bin-dv" data-kind="dependent">
+        <h3>因变量 <small>我测量记录的</small></h3>
+        <div class="bin-body" data-drop="dependent"></div>
+      </div>
+      <div class="bin bin-cv" data-kind="controlled">
+        <h3>控制变量 <small>每轮保持相同的</small></h3>
+        <div class="bin-body" data-drop="controlled"></div>
+      </div>
+    </div>
+    <div class="unassigned">
+      <h3>📥 未归类因素（拖到上面）</h3>
+      <div class="bin-body bin-unassigned" data-drop="unassigned"></div>
+    </div>
+  </section>
+
+  <!-- 3. 材料与时段 -->
+  <section class="card">
+    <h2>③ 材料份数与可用时段</h2>
+    <div class="grid-2">
+      <div>
+        <h3>材料</h3>
+        <table class="mini-table" id="materialTable">
+          <thead><tr><th>名称</th><th>每轮份数</th><th>库存</th><th>单位</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <button class="btn small" id="addMaterialBtn">＋ 加材料</button>
+      </div>
+      <div>
+        <h3>可用时段</h3>
+        <table class="mini-table" id="slotTable">
+          <thead><tr><th>时段（如周三下午）</th><th>可同时进行轮数</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <button class="btn small" id="addSlotBtn">＋ 加时段</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. 检查与排演 -->
+  <section class="card">
+    <h2>④ 动手前检查，再排出实验次序</h2>
+    <div id="issueList" class="issues"></div>
+    <div class="row schedule-row">
+      <button id="saveDesignBtn" class="btn primary">保存设计并检查</button>
+      <button id="scheduleBtn" class="btn primary">🎲 排出平衡随机轮次</button>
+      <button id="rescheduleBtn" class="btn" title="忽略锁定，全部重排">条件变了：全部重排</button>
+      <span id="genInfo" class="hint"></span>
+    </div>
+  </section>
+
+  <!-- 5. 时间轴 -->
+  <section class="card" id="timelineCard">
+    <h2>⑤ 实验时间轴（拖动轮次卡片可查看，点击锁定/录入）</h2>
+    <div id="timeline" class="timeline"></div>
+  </section>
+
+  <!-- 6. 测量录入（选中轮次后显示） -->
+  <section class="card hidden" id="entryCard">
+    <h2>⑥ 录入第 <span id="entrySeq"></span> 轮测量值</h2>
+    <div id="entryCombo" class="combo-chips"></div>
+    <div id="entryRows"></div>
+    <label class="checkline">
+      <input type="checkbox" id="entryDone"> 本轮已完成并锁定（之后重排会保留这一轮）
+    </label>
+    <div class="row">
+      <button id="saveEntryBtn" class="btn primary">保存测量</button>
+      <button id="closeEntryBtn" class="btn">关闭</button>
+    </div>
+  </section>
+
+  <!-- 7. 结果 -->
+  <section class="card hidden" id="resultsCard">
+    <h2>⑦ 各水平原始数据 · 均值 · 极差</h2>
+    <div id="resultPanels"></div>
+    <h3>结果图（均值柱＋极差线，灰点为原始数据）</h3>
+    <div id="charts"></div>
+  </section>
+
+  <!-- 8. 冻结 / 回放 / 打印 -->
+  <section class="card">
+    <h2>⑧ 冻结版本 · 回放随机依据 · 打印实验单</h2>
+    <div class="row">
+      <button id="freezeBtn" class="btn warn">🔒 冻结当前版本</button>
+      <button id="replayBtn" class="btn">🔁 回放随机依据</button>
+      <button id="printBtn" class="btn">🖨️ 打印实验单</button>
+      <span id="freezeState" class="hint"></span>
+    </div>
+    <div id="snapshotList" class="snapshots"></div>
+    <div id="replayBox" class="replay hidden"></div>
+  </section>
+</main>
+
+<!-- 实验单（打印区） -->
+<div id="printSheet" class="print-only">
+  <h1 id="psTitle">实验单</h1>
+  <p><b>假设：</b><span id="psHyp"></span></p>
+  <p><b>材料：</b><span id="psMat"></span></p>
+  <p><b>控制变量（保持相同）：</b><span id="psCV"></span></p>
+  <h2>步骤</h2>
+  <ol id="psSteps"></ol>
+  <h2>空白记录格</h2>
+  <table id="psTable" border="1" cellspacing="0" cellpadding="4"></table>
+  <p class="ps-note">记录时写清单位；异常数据请在备注里写明原因，不要悄悄擦掉。</p>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
