@@ -258,6 +258,7 @@ async function saveDesign(opts = {}) {
       name: $('#nameInput').value,
       hypothesis: $('#hypothesisInput').value,
       repeats: Number($('#repeatsInput').value) || 1,
+      seed: Number($('#seedInput').value) || 0,
       factors,
       materials: collectTable('#materialTable tbody').filter(m => m.name),
       slots: collectTable('#slotTable tbody').filter(s => s.label),
@@ -430,27 +431,31 @@ function renderResults() {
   $('#resultsCard').classList.toggle('hidden', !hasData && !state.rounds.length);
 
   for (const s of state.stats) {
-    const div = document.createElement('div');
-    div.className = 'result-panel';
-    let html = `<h3>${escapeHtml(s.dv_name)}（单位：${escapeHtml(s.unit || '?')}）</h3>
+    // 每个自变量各出一张分组统计表
+    for (const g of s.by_iv) {
+      const div = document.createElement('div');
+      div.className = 'result-panel';
+      let html = `<h3>${escapeHtml(s.dv_name)}（单位：${escapeHtml(s.unit || '?')}）
+        · 按自变量「${escapeHtml(g.iv_name)}」分组</h3>
       <table><thead><tr><th>水平</th><th>原始数据</th><th>均值</th><th>极差</th><th>份数 n</th></tr></thead><tbody>`;
-    for (const lv of s.levels) {
-      html += `<tr><td><b>${escapeHtml(lv.level)}</b></td>
+      for (const lv of g.levels) {
+        html += `<tr><td><b>${escapeHtml(lv.level)}</b></td>
         <td>${lv.values.map(v => escapeHtml(String(v))).join('，') || '—'}</td>
         <td>${lv.mean ?? '—'}</td>
         <td>${lv.range ?? '—'}</td>
         <td>${lv.n}</td></tr>`;
-    }
-    html += '</tbody></table>';
-    div.innerHTML = html;
-    wrap.appendChild(div);
+      }
+      html += '</tbody></table>';
+      div.innerHTML = html;
+      wrap.appendChild(div);
 
-    const cw = document.createElement('div');
-    cw.className = 'chart-wrap';
-    const cv = document.createElement('canvas');
-    cw.appendChild(cv);
-    charts.appendChild(cw);
-    drawChart(cv, s);
+      const cw = document.createElement('div');
+      cw.className = 'chart-wrap';
+      const cv = document.createElement('canvas');
+      cw.appendChild(cv);
+      charts.appendChild(cw);
+      drawChart(cv, s, g);
+    }
   }
   // 数据级问题（单位混用/缺测/剔除）在结果表下方点明轮次
   const dataIssues = state.issues.filter(i =>
@@ -473,8 +478,8 @@ function renderResults() {
   }
 }
 
-function drawChart(canvas, stat) {
-  const levels = stat.levels.filter(l => l.mean !== null);
+function drawChart(canvas, stat, group) {
+  const levels = group.levels.filter(l => l.mean !== null);
   const W = 140 + levels.length * 110, H = 320;
   const dpr = window.devicePixelRatio || 1;
   canvas.width = W * dpr; canvas.height = H * dpr;
@@ -484,7 +489,7 @@ function drawChart(canvas, stat) {
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = '#1f2937';
   ctx.font = 'bold 13px sans-serif';
-  ctx.fillText(`${stat.dv_name}（${stat.unit || ''}）：均值＋极差`, 12, 20);
+  ctx.fillText(`${stat.dv_name}（${stat.unit || ''}）· ${group.iv_name}：均值＋极差`, 12, 20);
   if (!levels.length) {
     ctx.fillStyle = '#9ca3af';
     ctx.fillText('暂无可绘制的数据', 12, 60);
@@ -702,6 +707,7 @@ function buildCurrentPayload() {
     name: $('#nameInput').value,
     hypothesis: $('#hypothesisInput').value,
     repeats: Number($('#repeatsInput').value) || 1,
+    seed: Number($('#seedInput').value) || 0,
     factors: collectFactors(),
     materials: collectTable('#materialTable tbody').filter(m => m.name),
     slots: collectTable('#slotTable tbody').filter(s => s.label),

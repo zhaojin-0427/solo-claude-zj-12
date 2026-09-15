@@ -113,44 +113,50 @@ def serialize_inquiry(db, inquiry_id: int) -> dict | None:
 
 
 def compute_stats(state: dict) -> list[dict]:
-    """各因变量 × 每个自变量各水平：原始数据、均值、极差。"""
-    dvs = [f for f in state["factors"] if f["kind"] == "independent" or f["kind"] == "dependent"]
+    """各因变量 × 每个自变量各水平：原始数据、均值、极差。
+
+    返回 [{"dv_id","dv_name","unit","by_iv":[{"iv_id","iv_name","levels":[...]}]}]。
+    有两个自变量时，两个自变量都会各自出一组统计（分别折叠另一因素的轮次）。
+    """
     ivs = [f for f in state["factors"] if f["kind"] == "independent"]
-    dv_factors = [f for f in dvs if f["kind"] == "dependent"]
+    dv_factors = [f for f in state["factors"] if f["kind"] == "dependent"]
     rounds_by_id = {r["id"]: r for r in state["rounds"]}
 
-    groups: dict[int, dict[str, list]] = {f["id"]: {} for f in dv_factors}
+    # groups[dv_id][iv_id][水平] = [测量值]
+    groups: dict = {dv["id"]: {iv["id"]: {} for iv in ivs} for dv in dv_factors}
     for m in state["measurements"]:
         if m.get("excluded") or m.get("value") is None:
             continue
         rnd = rounds_by_id.get(m["round_id"])
         if not rnd or m.get("dv_id") not in groups:
             continue
-        # 以该轮组合里「第一个自变量」的水平作为分组轴，其余自变量折叠展示
-        if ivs:
-            key = str(rnd["combo"].get(ivs[0]["name"], ""))
-        else:
-            key = "-"
-        groups[m["dv_id"]].setdefault(key, []).append(float(m["value"]))
+        for iv in ivs:
+            level = str(rnd["combo"].get(iv["name"], ""))
+            groups[m["dv_id"]][iv["id"]].setdefault(level, []).append(float(m["value"]))
+
+    def summarize(vals: list[float]) -> dict:
+        return {
+            "values": vals,
+            "mean": round(sum(vals) / len(vals), 4) if vals else None,
+            "range": round(max(vals) - min(vals), 4) if vals else None,
+            "min": min(vals) if vals else None,
+            "max": max(vals) if vals else None,
+            "n": len(vals),
+        }
 
     out = []
     for dv in dv_factors:
-        per_level = []
-        for level, vals in groups[dv["id"]].items():
-            per_level.append({
-                "level": level,
-                "values": vals,
-                "mean": round(sum(vals) / len(vals), 4) if vals else None,
-                "range": round(max(vals) - min(vals), 4) if vals else None,
-                "min": min(vals) if vals else None,
-                "max": max(vals) if vals else None,
-                "n": len(vals),
-            })
-        # 按自变量水平声明顺序排序
-        order = {str(v): i for iv in ivs[:1] for i, v in enumerate(iv.get("levels") or [])}
-        per_level.sort(key=lambda x: order.get(x["level"], 999))
-        out.append({"dv_id": dv["id"], "dv_name": dv["name"], "unit": dv.get("unit", ""),
-                    "levels": per_level})
+        by_iv = []
+        for iv in ivs:
+            order = {str(v): i for i, v in enumerate(iv.get("levels") or [])}
+            per_level = [
+                {"level": level, **summarize(vals)}
+                for level, vals in groups[dv["id"]][iv["id"]].items()
+            ]
+            per_level.sort(key=lambda x: order.get(x["level"], 999))
+            by_iv.append({"iv_id": iv["id"], "iv_name": iv["name"], "levels": per_level})
+        out.append({"dv_id": dv["id"], "dv_name": dv["name"],
+                    "unit": dv.get("unit", ""), "by_iv": by_iv})
     return out
 
 
@@ -284,9 +290,10 @@ def update_inquiry(iid):
 
     data = request.get_json(force=True, silent=True) or {}
     db.execute(
-        "UPDATE inquiry SET name=?, hypothesis=?, repeats=? WHERE id=?",
+        "UPDATE inquiry SET name=?, hypothesis=?, repeats=?, seed=? WHERE id=?",
         (data.get("name", row["name"]), data.get("hypothesis", row["hypothesis"]),
-         max(1, int(data.get("repeats", row["repeats"]))), iid))
+         max(1, int(data.get("repeats", row["repeats"]))),
+         int(data.get("seed", row["seed"])), iid))
     _replace_children(db, iid, data)
     _touch(db, iid)
     db.commit()
@@ -327,7 +334,10 @@ def run_schedule(iid):
         "SELECT * FROM slot WHERE inquiry_id=? ORDER BY ord,id", (iid,))]
 
     generation = row["generation"] + 1
-    seed_used = int(row["seed"]) + (generation if data.get("advance_seed", True) else 0)
+    # 第 1 代排演直接使用填写的种子；之后每重排一代 +1，
+    # 这样既保证「填什么种子第一轮就是什么种子」，又能让条件变化后排法不同但仍可复现。
+    seed_used = int(row["seed"]) + max(0, generation - 1) \
+        if data.get("advance_seed", True) else int(row["seed"])
 
     locked_rounds = []
     if not reschedule_all:

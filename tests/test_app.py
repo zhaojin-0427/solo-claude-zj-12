@@ -107,7 +107,7 @@ def test_full_flow(client):
     # 统计：均值/极差
     st = s["stats"][0]
     assert st["dv_name"] == "发芽长度"
-    grouped = {l["level"]: l for l in st["levels"]}
+    grouped = {l["level"]: l for l in st["by_iv"][0]["levels"]}
     # 第 1 轮被剔除，不应出现在任何水平里
     used_levels = {rnd["combo"]["光照时间"] for rnd in rounds[:3]}
     for lv_name in used_levels:
@@ -159,6 +159,70 @@ def test_schedule_balance_and_determinism():
         blocks[r["block_no"]].add(json.dumps(r["combo"], sort_keys=True))
     assert all(len(b) == 4 for b in blocks.values())
     assert len(build_combos(ivs)) == 4
+
+
+def test_seed_is_saved_and_used_for_first_generation(client):
+    """回归：改种子并保存后，输入框对应的值持久化；第一代排演就用该种子本身。"""
+    iid = client.post("/api/inquiries", json={"name": "种子"}).get_json()["inquiry"]["id"]
+    d = design()
+    d["seed"] = 12345
+    client.put(f"/api/inquiries/{iid}", json=d)
+    saved = client.get(f"/api/inquiries/{iid}").get_json()
+    assert saved["inquiry"]["seed"] == 12345
+
+    s1 = client.post(f"/api/inquiries/{iid}/schedule", json={}).get_json()
+    assert s1["rng_log"]["seed_used"] == 12345
+
+    # 同一种子重置到新探究，第一代次序应完全一致（可复现）
+    iid2 = client.post("/api/inquiries", json={"name": "种子副本"}).get_json()["inquiry"]["id"]
+    client.put(f"/api/inquiries/{iid2}", json=d)
+    s2 = client.post(f"/api/inquiries/{iid2}/schedule", json={}).get_json()
+    assert [r["combo"] for r in s1["rounds"]] == [r["combo"] for r in s2["rounds"]]
+
+    # 重排一代：种子 +1，次序可不同但仍可复现
+    s3 = client.post(f"/api/inquiries/{iid}/schedule", json={}).get_json()
+    assert s3["rng_log"]["seed_used"] == 12346
+
+
+def test_stats_grouped_by_every_independent_variable(client):
+    """回归：两个自变量时，每个自变量都要出 亮/暗、多/少 两组统计。"""
+    iid = client.post("/api/inquiries", json={"name": "双因素统计"}).get_json()["inquiry"]["id"]
+    d = {
+        "name": "双因素统计", "repeats": 1,
+        "factors": [
+            {"name": "光照", "kind": "independent", "unit": "", "levels": ["亮", "暗"]},
+            {"name": "水量", "kind": "independent", "unit": "", "levels": ["多", "少"]},
+            {"name": "高度", "kind": "dependent", "unit": "mm", "levels": []},
+            {"name": "温度", "kind": "controlled", "unit": "", "levels": ["20"]},
+        ],
+        "materials": [],
+        "slots": [{"label": "S", "capacity": 4}],
+    }
+    client.put(f"/api/inquiries/{iid}", json=d)
+    s = client.post(f"/api/inquiries/{iid}/schedule", json={}).get_json()
+    dv = next(f for f in s["factors"] if f["kind"] == "dependent")
+    values = {("亮", "多"): 10.0, ("亮", "少"): 8.0,
+              ("暗", "多"): 5.0, ("暗", "少"): 3.0}
+    for rnd in s["rounds"]:
+        v = values[(rnd["combo"]["光照"], rnd["combo"]["水量"])]
+        client.put(f"/api/inquiries/{iid}/rounds/{rnd['id']}/measurement", json={
+            "dv_id": dv["id"], "dv_name": "高度", "value": v,
+            "unit": "mm", "anomaly": ""})
+
+    st = client.get(f"/api/inquiries/{iid}").get_json()["stats"][0]
+    by_name = {g["iv_name"]: {l["level"]: l for l in g["levels"]} for g in st["by_iv"]}
+    assert set(by_name) == {"光照", "水量"}
+    # 光照：亮=(10,8) 均值9极差2；暗=(5,3) 均值4极差2
+    assert sorted(by_name["光照"]["亮"]["values"]) == [8.0, 10.0]
+    assert by_name["光照"]["亮"]["mean"] == 9.0
+    assert by_name["光照"]["亮"]["range"] == 2.0
+    assert by_name["光照"]["暗"]["mean"] == 4.0
+    # 水量：多=(10,5) 均值7.5极差5；少=(8,3) 均值5.5极差5
+    assert sorted(by_name["水量"]["多"]["values"]) == [5.0, 10.0]
+    assert by_name["水量"]["多"]["mean"] == 7.5
+    assert by_name["水量"]["多"]["range"] == 5.0
+    assert by_name["水量"]["少"]["mean"] == 5.5
+    assert by_name["水量"]["少"]["range"] == 5.0
 
 
 def test_resource_conflict():
